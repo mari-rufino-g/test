@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 
 # Configuração da página
 st.set_page_config(
@@ -68,6 +67,13 @@ st.markdown("""
     height: 100%;
     border-radius: 10px;
     transition: width 0.3s ease;
+}
+.stat-box {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+    margin: 0.5rem 0;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -168,22 +174,15 @@ def load_phone_data():
         }
     }
 
-# Função para criar barra de progresso HTML
-def create_progress_bar(value, max_value, color="#667eea", label=""):
-    percentage = min((value / max_value) * 100, 100)
-    return f"""
-    <div style="margin: 5px 0;">
-        <small>{label}</small>
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: {percentage}%; background-color: {color};"></div>
-        </div>
-        <small>{value} / {max_value}</small>
-    </div>
-    """
+# Funções auxiliares usando operações básicas do Python
+def calculate_average(values):
+    return sum(values) / len(values) if values else 0
 
-# Função para normalizar valores para comparação
-def normalize_value(value, min_val, max_val):
-    return ((value - min_val) / (max_val - min_val)) * 100
+def find_min_max(values):
+    return min(values), max(values)
+
+def calculate_percentage(value, max_value):
+    return min((value / max_value) * 100, 100) if max_value > 0 else 0
 
 # Interface principal
 def main():
@@ -237,9 +236,9 @@ def main():
     
     # Filtro por preço
     show_price_filter = st.sidebar.checkbox("Ativar filtro de preço")
-    if show_price_filter:
-        min_price = min([phone_data[phone]['price'] for phone in selected_phones])
-        max_price = max([phone_data[phone]['price'] for phone in selected_phones])
+    if show_price_filter and selected_phones:
+        prices = [phone_data[phone]['price'] for phone in selected_phones]
+        min_price, max_price = find_min_max(prices)
         
         price_range = st.sidebar.slider(
             "Faixa de preço (R$)",
@@ -260,16 +259,21 @@ def main():
     
     # Estatísticas gerais
     st.sidebar.subheader("📈 Estatísticas")
-    avg_price = np.mean([phone_data[phone]['price'] for phone in selected_phones])
-    st.sidebar.metric("Preço Médio", f"R$ {avg_price:,.0f}")
-    st.sidebar.metric("Dispositivos Selecionados", len(selected_phones))
+    if selected_phones:
+        prices = [phone_data[phone]['price'] for phone in selected_phones]
+        avg_price = calculate_average(prices)
+        st.sidebar.metric("Preço Médio", f"R$ {avg_price:,.0f}")
+        st.sidebar.metric("Dispositivos Selecionados", len(selected_phones))
     
     # Seção de cards dos dispositivos
     st.header("📋 Dispositivos Selecionados")
     
-    cols = st.columns(min(len(selected_phones), 3))
+    # Calcular número de colunas baseado no número de dispositivos
+    num_cols = min(len(selected_phones), 3)
+    cols = st.columns(num_cols)
+    
     for i, phone in enumerate(selected_phones):
-        with cols[i % 3]:
+        with cols[i % num_cols]:
             data = phone_data[phone]
             st.markdown(f"""
             <div class="metric-card">
@@ -285,48 +289,42 @@ def main():
     st.header("📊 Análise Comparativa")
     
     # Preparar dados para comparação
-    comparison_metrics = {}
-    for phone in selected_phones:
-        data = phone_data[phone]
-        comparison_metrics[phone] = {
-            'Densidade de Pixels': data['pixel_density'],
-            'Brilho (nits)': data['brightness'],
-            'Taxa de Toque (Hz)': data['touch_sampling'],
-            'Tamanho da Tela (pol)': data['screen_size'],
-            'Preço (R$)': data['price']
-        }
+    metrics_data = {
+        'Densidade de Pixels (ppi)': [phone_data[phone]['pixel_density'] for phone in selected_phones],
+        'Brilho (nits)': [phone_data[phone]['brightness'] for phone in selected_phones],
+        'Taxa de Toque (Hz)': [phone_data[phone]['touch_sampling'] for phone in selected_phones],
+        'Tamanho da Tela (pol)': [phone_data[phone]['screen_size'] for phone in selected_phones]
+    }
     
-    # Exibir métricas com barras de progresso
-    metrics_to_show = ['Densidade de Pixels', 'Brilho (nits)', 'Taxa de Toque (Hz)']
-    
-    for metric in metrics_to_show:
-        st.subheader(f"🔍 {metric}")
-        values = [comparison_metrics[phone][metric] for phone in selected_phones]
-        max_value = max(values)
-        
-        cols = st.columns(len(selected_phones))
-        for i, phone in enumerate(selected_phones):
-            with cols[i]:
-                value = comparison_metrics[phone][metric]
-                progress_percentage = (value / max_value) * 100
-                
-                # Escolher cor baseada na performance
-                if progress_percentage >= 80:
-                    color = "#28a745"  # Verde
-                elif progress_percentage >= 60:
-                    color = "#ffc107"  # Amarelo
-                else:
-                    color = "#dc3545"  # Vermelho
-                
-                st.markdown(f"""
-                <div class="spec-row">
-                    <h4>{phone_data[phone]['emoji']} {phone}</h4>
-                    <p><strong>{value:,}</strong></p>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: {progress_percentage}%; background-color: {color};"></div>
+    # Exibir métricas principais
+    for metric_name, values in metrics_data.items():
+        if metric_name != 'Tamanho da Tela (pol)':  # Pular tamanho da tela para as barras
+            st.subheader(f"🔍 {metric_name}")
+            max_value = max(values)
+            
+            cols = st.columns(len(selected_phones))
+            for i, phone in enumerate(selected_phones):
+                with cols[i]:
+                    value = values[i]
+                    progress_percentage = calculate_percentage(value, max_value)
+                    
+                    # Escolher cor baseada na performance
+                    if progress_percentage >= 80:
+                        color = "#28a745"  # Verde
+                    elif progress_percentage >= 60:
+                        color = "#ffc107"  # Amarelo
+                    else:
+                        color = "#dc3545"  # Vermelho
+                    
+                    st.markdown(f"""
+                    <div class="spec-row">
+                        <h4>{phone_data[phone]['emoji']} {phone}</h4>
+                        <p><strong>{value:,}</strong></p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {progress_percentage}%; background-color: {color};"></div>
+                        </div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
     
     # Tabela de comparação completa
     st.header("📋 Tabela de Comparação Detalhada")
@@ -342,9 +340,9 @@ def main():
             'Tipo Display': data['display_type'],
             'Resolução': data['resolution'],
             'Densidade (ppi)': f"{data['pixel_density']} ppi",
-            'Taxa (Hz)': f"{data['refresh_rate']} Hz",
+            'Taxa Atualização (Hz)': f"{data['refresh_rate']} Hz",
             'Brilho (nits)': f"{data['brightness']:,}",
-            'Toque (Hz)': f"{data['touch_sampling']} Hz",
+            'Taxa Toque (Hz)': f"{data['touch_sampling']} Hz",
             'Tela Resistente': '✅ Sim' if data['durable_screen'] else '❌ Não',
             'HDR10': '✅ Sim' if data['hdr10'] else '❌ Não',
             'Preço': f"R$ {data['price']:,}"
@@ -374,6 +372,25 @@ def main():
         })
         st.bar_chart(brightness_data.set_index('Smartphone')['Brilho (nits)'])
     
+    # Segunda linha de gráficos
+    col3, col4 = st.columns(2)
+    
+    with col3:
+        st.subheader("📏 Densidade de Pixels")
+        density_data = pd.DataFrame({
+            'Smartphone': selected_phones,
+            'Densidade (ppi)': [phone_data[phone]['pixel_density'] for phone in selected_phones]
+        })
+        st.bar_chart(density_data.set_index('Smartphone')['Densidade (ppi)'])
+    
+    with col4:
+        st.subheader("👆 Taxa de Amostragem")
+        touch_data = pd.DataFrame({
+            'Smartphone': selected_phones,
+            'Taxa Toque (Hz)': [phone_data[phone]['touch_sampling'] for phone in selected_phones]
+        })
+        st.bar_chart(touch_data.set_index('Smartphone')['Taxa Toque (Hz)'])
+    
     # Análise de custo-benefício
     st.header("💡 Análise Inteligente")
     
@@ -381,7 +398,7 @@ def main():
     scores = {}
     for phone in selected_phones:
         data = phone_data[phone]
-        # Score baseado em especificações técnicas
+        # Score baseado em especificações técnicas (0-100)
         tech_score = (
             (data['pixel_density'] / 500) * 20 +
             (data['brightness'] / 3000) * 20 +
@@ -397,9 +414,9 @@ def main():
             'cost_benefit': round(cost_benefit, 2)
         }
     
-    # Rankings
-    best_tech = max(scores.items(), key=lambda x: x[1]['tech_score'])
-    best_value = max(scores.items(), key=lambda x: x[1]['cost_benefit'])
+    # Encontrar melhores em cada categoria
+    best_tech = max(selected_phones, key=lambda x: scores[x]['tech_score'])
+    best_value = max(selected_phones, key=lambda x: scores[x]['cost_benefit'])
     most_expensive = max(selected_phones, key=lambda x: phone_data[x]['price'])
     cheapest = min(selected_phones, key=lambda x: phone_data[x]['price'])
     
@@ -412,9 +429,9 @@ def main():
         st.markdown(f"""
         <div class="recommendation-card best-choice">
             <h4>🏆 Melhor Custo-Benefício</h4>
-            <h3>{phone_data[best_value[0]]['emoji']} {best_value[0]}</h3>
-            <p><strong>Score: {best_value[1]['cost_benefit']}</strong></p>
-            <p>R$ {phone_data[best_value[0]]['price']:,}</p>
+            <h3>{phone_data[best_value]['emoji']} {best_value}</h3>
+            <p><strong>Score: {scores[best_value]['cost_benefit']}</strong></p>
+            <p>R$ {phone_data[best_value]['price']:,}</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -422,9 +439,9 @@ def main():
         st.markdown(f"""
         <div class="recommendation-card premium-choice">
             <h4>💎 Mais Avançado</h4>
-            <h3>{phone_data[best_tech[0]]['emoji']} {best_tech[0]}</h3>
-            <p><strong>Score Técnico: {best_tech[1]['tech_score']}</strong></p>
-            <p>R$ {phone_data[best_tech[0]]['price']:,}</p>
+            <h3>{phone_data[best_tech]['emoji']} {best_tech}</h3>
+            <p><strong>Score Técnico: {scores[best_tech]['tech_score']}</strong></p>
+            <p>R$ {phone_data[best_tech]['price']:,}</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -441,18 +458,16 @@ def main():
     # Ranking completo
     st.subheader("📊 Ranking Geral (Custo-Benefício)")
     
+    # Ordenar phones por custo-benefício
     sorted_phones = sorted(selected_phones, key=lambda x: scores[x]['cost_benefit'], reverse=True)
     
     for i, phone in enumerate(sorted_phones):
         col1, col2, col3, col4 = st.columns([1, 3, 2, 2])
         
         with col1:
-            if i == 0:
-                st.markdown("🥇")
-            elif i == 1:
-                st.markdown("🥈")
-            elif i == 2:
-                st.markdown("🥉")
+            medals = ["🥇", "🥈", "🥉"]
+            if i < 3:
+                st.markdown(medals[i])
             else:
                 st.markdown(f"**#{i+1}**")
         
@@ -468,20 +483,53 @@ def main():
     # Insights e conclusões
     st.header("🎯 Insights da Análise")
     
-    insights = []
-    
     if len(selected_phones) > 1:
-        price_diff = max([phone_data[phone]['price'] for phone in selected_phones]) - min([phone_data[phone]['price'] for phone in selected_phones])
-        insights.append(f"💰 A diferença de preço entre o mais caro e mais barato é de R$ {price_diff:,}")
+        prices = [phone_data[phone]['price'] for phone in selected_phones]
+        brightnesses = [phone_data[phone]['brightness'] for phone in selected_phones]
         
-        avg_brightness = np.mean([phone_data[phone]['brightness'] for phone in selected_phones])
-        insights.append(f"🔆 O brilho médio das telas é de {avg_brightness:.0f} nits")
+        min_price, max_price = find_min_max(prices)
+        avg_brightness = calculate_average(brightnesses)
         
+        price_diff = max_price - min_price
         hdr_phones = [phone for phone in selected_phones if phone_data[phone]['hdr10']]
-        insights.append(f"📺 {len(hdr_phones)} de {len(selected_phones)} smartphones suportam HDR10")
+        
+        insights = [
+            f"💰 A diferença de preço entre o mais caro e mais barato é de R$ {price_diff:,}",
+            f"🔆 O brilho médio das telas é de {avg_brightness:.0f} nits",
+            f"📺 {len(hdr_phones)} de {len(selected_phones)} smartphones suportam HDR10"
+        ]
+        
+        for insight in insights:
+            st.info(insight)
     
-    for insight in insights:
-        st.info(insight)
+    # Estatísticas detalhadas
+    st.subheader("📈 Estatísticas Detalhadas")
+    
+    if selected_phones:
+        stats_col1, stats_col2 = st.columns(2)
+        
+        with stats_col1:
+            st.markdown(f"""
+            <div class="stat-box">
+                <h4>📊 Resumo de Preços</h4>
+                <p>• Mais caro: R$ {max([phone_data[phone]['price'] for phone in selected_phones]):,}</p>
+                <p>• Mais barato: R$ {min([phone_data[phone]['price'] for phone in selected_phones]):,}</p>
+                <p>• Preço médio: R$ {calculate_average([phone_data[phone]['price'] for phone in selected_phones]):,.0f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with stats_col2:
+            brands_count = {}
+            for phone in selected_phones:
+                brand = phone_data[phone]['brand']
+                brands_count[brand] = brands_count.get(brand, 0) + 1
+            
+            st.markdown(f"""
+            <div class="stat-box">
+                <h4>🏢 Distribuição por Marca</h4>
+                {''.join([f"<p>• {brand}: {count} dispositivo(s)</p>" for brand, count in brands_count.items()])}
+            </div>
+            """, unsafe_allow_html=True)
     
     # Footer
     st.markdown("---")
