@@ -1,545 +1,647 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+import random
 
 # Configuração da página
 st.set_page_config(
-    page_title="Comparação de Smartphones",
+    page_title="Comparador de Produtos",
     page_icon="📱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# CSS customizado
+# CSS customizado para um design mais limpo
 st.markdown("""
 <style>
-.metric-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 1.5rem;
-    border-radius: 10px;
-    margin: 0.5rem 0;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+/* Reset e base */
+.main > div {
+    padding-top: 2rem;
 }
-.comparison-header {
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 2rem;
-    border-radius: 10px;
-    text-align: center;
+
+/* Header */
+.header-container {
+    background: white;
+    padding: 2rem 0 1rem 0;
+    border-bottom: 1px solid #e0e0e0;
     margin-bottom: 2rem;
 }
-.spec-row {
-    padding: 1rem;
-    margin: 0.5rem 0;
-    border-left: 4px solid #667eea;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-}
-.recommendation-card {
-    padding: 1rem;
-    border-radius: 10px;
+
+.header-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0;
     text-align: center;
-    margin: 0.5rem;
 }
-.best-choice {
-    background-color: #d4edda;
-    border: 2px solid #28a745;
-    color: #155724;
+
+.header-subtitle {
+    font-size: 1rem;
+    color: #666;
+    text-align: center;
+    margin-top: 0.5rem;
 }
-.premium-choice {
-    background-color: #cce7ff;
-    border: 2px solid #007bff;
-    color: #004085;
-}
-.budget-choice {
-    background-color: #fff3cd;
-    border: 2px solid #ffc107;
-    color: #856404;
-}
-.progress-bar {
-    background-color: #e9ecef;
-    border-radius: 10px;
-    height: 20px;
-    margin: 5px 0;
-    overflow: hidden;
-}
-.progress-fill {
-    height: 100%;
-    border-radius: 10px;
-    transition: width 0.3s ease;
-}
-.stat-box {
-    background-color: #f8f9fa;
+
+/* Sidebar styling */
+.sidebar-header {
+    background: #f8f9fa;
     padding: 1rem;
     border-radius: 8px;
-    border-left: 4px solid #667eea;
+    margin-bottom: 1rem;
+    border-left: 4px solid #007bff;
+}
+
+/* Product cards */
+.product-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.product-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.product-image {
+    width: 60px;
+    height: 60px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.product-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1a1a1a;
     margin: 0.5rem 0;
+}
+
+.product-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #007bff;
+    margin: 0.8rem 0;
+}
+
+.product-year {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.add-button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.7rem 1rem;
+    border-radius: 6px;
+    width: 100%;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.add-button:hover {
+    background: #0056b3;
+}
+
+.remove-button {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.7rem 1rem;
+    border-radius: 6px;
+    width: 100%;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Comparison section */
+.comparison-header {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.comparison-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+.spec-table {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.spec-row {
+    border-bottom: 1px solid #f0f0f0;
+    padding: 1rem;
+}
+
+.spec-row:last-child {
+    border-bottom: none;
+}
+
+.spec-label {
+    font-weight: 600;
+    color: #333;
+    padding: 0.5rem 0;
+}
+
+.best-price {
+    background: #d4edda;
+    color: #155724;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.most-recent {
+    background: #cce7ff;
+    color: #004085;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.premium {
+    background: #fff3cd;
+    color: #856404;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+/* Clear button */
+.clear-button {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+
+/* Price history charts */
+.chart-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.chart-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.current-price {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #007bff;
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.price-trend {
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.price-down {
+    color: #28a745;
+}
+
+.price-up {
+    color: #dc3545;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Base de dados dos smartphones
+# Base de dados dos produtos
 @st.cache_data
-def load_phone_data():
+def load_product_data():
     return {
-        'iPhone 15 Pro': {
+        'iPhone 15 Pro Max': {
             'brand': 'Apple',
-            'display_type': 'OLED',
-            'screen_size': 6.1,
-            'resolution': '1179 x 2556',
-            'pixel_density': 460,
-            'refresh_rate': 120,
-            'brightness': 2000,
-            'touch_sampling': 240,
-            'durable_screen': True,
-            'hdr10': True,
-            'price': 7999,
-            'launch_year': 2023,
-            'emoji': '🍎'
+            'category': 'Celulares',
+            'price': 11199,
+            'year': 2023,
+            'launch_date': '2023-09-15',
+            'specifications': {
+                'Ano de Lançamento': 2023,
+                'Memória RAM': '8GB',
+                'Armazenamento': '256GB',
+                'Processador': 'A17 Pro',
+                'Tela': '6.7" Super Retina XDR',
+                'Bateria': '4441 mAh',
+                'Câmera': '48MP + 12MP + 12MP',
+                'Sistema Operacional': 'iOS 17',
+                'Peso': '221g'
+            },
+            'icon': '📱'
         },
-        'Galaxy S24': {
+        'Galaxy S24 Ultra': {
             'brand': 'Samsung',
-            'display_type': 'OLED',
-            'screen_size': 6.2,
-            'resolution': '1080 x 2340',
-            'pixel_density': 416,
-            'refresh_rate': 120,
-            'brightness': 2600,
-            'touch_sampling': 240,
-            'durable_screen': True,
-            'hdr10': True,
-            'price': 6499,
-            'launch_year': 2024,
-            'emoji': '📱'
+            'category': 'Celulares',
+            'price': 12299,
+            'year': 2024,
+            'launch_date': '2024-01-17',
+            'specifications': {
+                'Ano de Lançamento': 2024,
+                'Memória RAM': '12GB',
+                'Armazenamento': '512GB',
+                'Processador': 'Snapdragon 8 Gen 3',
+                'Tela': '6.8" Dynamic AMOLED 2X',
+                'Bateria': '5000 mAh',
+                'Câmera': '200MP + 50MP + 10MP + 12MP',
+                'Sistema Operacional': 'Android 14',
+                'Peso': '232g'
+            },
+            'icon': '📱'
         },
-        'Vivo Y400 4G': {
-            'brand': 'Vivo',
-            'display_type': 'OLED',
-            'screen_size': 6.67,
-            'resolution': '1080 x 2400',
-            'pixel_density': 395,
-            'refresh_rate': 120,
-            'brightness': 1200,
-            'touch_sampling': 180,
-            'durable_screen': False,
-            'hdr10': False,
-            'price': 1299,
-            'launch_year': 2024,
-            'emoji': '📳'
+        'Pixel 8 Pro': {
+            'brand': 'Google',
+            'category': 'Celulares',
+            'price': 9999,
+            'year': 2023,
+            'launch_date': '2023-10-04',
+            'specifications': {
+                'Ano de Lançamento': 2023,
+                'Memória RAM': '12GB',
+                'Armazenamento': '128GB',
+                'Processador': 'Google Tensor G3',
+                'Tela': '6.7" LTPO OLED',
+                'Bateria': '5050 mAh',
+                'Câmera': '50MP + 48MP + 48MP',
+                'Sistema Operacional': 'Android 14',
+                'Peso': '213g'
+            },
+            'icon': '📱'
         },
-        'Vivo Y400 5G': {
-            'brand': 'Vivo',
-            'display_type': 'OLED',
-            'screen_size': 6.67,
-            'resolution': '1080 x 2400',
-            'pixel_density': 395,
-            'refresh_rate': 120,
-            'brightness': 1200,
-            'touch_sampling': 180,
-            'durable_screen': False,
-            'hdr10': True,
-            'price': 1599,
-            'launch_year': 2024,
-            'emoji': '📳'
-        },
-        'Xiaomi 14': {
+        'Xiaomi 14 Ultra': {
             'brand': 'Xiaomi',
-            'display_type': 'OLED',
-            'screen_size': 6.36,
-            'resolution': '1200 x 2670',
-            'pixel_density': 460,
-            'refresh_rate': 120,
-            'brightness': 3000,
-            'touch_sampling': 480,
-            'durable_screen': True,
-            'hdr10': True,
-            'price': 4999,
-            'launch_year': 2024,
-            'emoji': '🤖'
-        },
-        'OnePlus Open': {
-            'brand': 'OnePlus',
-            'display_type': 'OLED Dobrável',
-            'screen_size': 7.82,
-            'resolution': '1440 x 2268',
-            'pixel_density': 426,
-            'refresh_rate': 120,
-            'brightness': 2800,
-            'touch_sampling': 1000,
-            'durable_screen': True,
-            'hdr10': True,
+            'category': 'Celulares',
             'price': 8999,
-            'launch_year': 2023,
-            'emoji': '📲'
+            'year': 2024,
+            'launch_date': '2024-02-25',
+            'specifications': {
+                'Ano de Lançamento': 2024,
+                'Memória RAM': '16GB',
+                'Armazenamento': '512GB',
+                'Processador': 'Snapdragon 8 Gen 3',
+                'Tela': '6.73" AMOLED',
+                'Bateria': '5300 mAh',
+                'Câmera': '50MP + 50MP + 50MP + 50MP',
+                'Sistema Operacional': 'MIUI 15',
+                'Peso': '229g'
+            },
+            'icon': '📱'
         }
     }
 
-# Funções auxiliares usando operações básicas do Python
-def calculate_average(values):
-    return sum(values) / len(values) if values else 0
+def generate_price_history(current_price, months=6):
+    """Gera histórico de preços simulado"""
+    dates = []
+    prices = []
+    
+    start_date = datetime.now() - timedelta(days=months*30)
+    
+    # Começar com um preço um pouco mais alto
+    base_price = current_price * 1.15
+    
+    for i in range(months * 4):  # 4 pontos por mês
+        date = start_date + timedelta(days=i*7)  # A cada semana
+        
+        # Simular flutuação de preços com tendência de queda
+        variation = random.uniform(-0.08, 0.03)  # Mais chance de cair
+        base_price = base_price * (1 + variation)
+        
+        # Garantir que não fique muito abaixo do preço atual
+        if base_price < current_price * 0.85:
+            base_price = current_price * random.uniform(0.9, 1.1)
+            
+        dates.append(date.strftime('%d/%m'))
+        prices.append(max(base_price, current_price * 0.8))
+    
+    # Garantir que o último preço seja próximo ao atual
+    prices[-1] = current_price
+    
+    return dates, prices
 
-def find_min_max(values):
-    return min(values), max(values)
+def create_price_chart(product_name, current_price):
+    """Cria gráfico de histórico de preços"""
+    dates, prices = generate_price_history(current_price)
+    
+    # Calcular tendência
+    price_change = (prices[-1] - prices[0]) / prices[0] * 100
+    trend_text = f"↓ R$ {abs(prices[0] - prices[-1]):.0f}" if price_change < 0 else f"↑ R$ {abs(prices[-1] - prices[0]):.0f}"
+    trend_class = "price-down" if price_change < 0 else "price-up"
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=dates,
+        y=prices,
+        mode='lines+markers',
+        line=dict(color='#dc3545', width=2),
+        marker=dict(size=4, color='#dc3545'),
+        fill='tonexty',
+        fillcolor='rgba(220, 53, 69, 0.1)'
+    ))
+    
+    fig.update_layout(
+        title=None,
+        xaxis=dict(
+            showgrid=False,
+            showline=False,
+            tickangle=45,
+            tickfont=dict(size=10)
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#f0f0f0',
+            showline=False,
+            tickformat='R$ ,.0f',
+            tickfont=dict(size=10)
+        ),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        height=200,
+        margin=dict(l=50, r=20, t=20, b=40),
+        showlegend=False
+    )
+    
+    return fig, trend_text, trend_class
 
-def calculate_percentage(value, max_value):
-    return min((value / max_value) * 100, 100) if max_value > 0 else 0
-
-# Interface principal
 def main():
     # Header
     st.markdown("""
-    <div class="comparison-header">
-        <h1>📱 Dashboard de Comparação de Smartphones</h1>
-        <p>Compare as especificações dos principais smartphones do mercado brasileiro</p>
+    <div class="header-container">
+        <h1 class="header-title">Comparador de Produtos</h1>
+        <p class="header-subtitle">Compare celulares e computadores lado a lado</p>
     </div>
     """, unsafe_allow_html=True)
     
     # Carregar dados
-    phone_data = load_phone_data()
+    product_data = load_product_data()
     
-    # Sidebar para seleção de smartphones
-    st.sidebar.header("🔧 Configurações da Comparação")
+    # Inicializar session state
+    if 'selected_products' not in st.session_state:
+        st.session_state.selected_products = []
     
-    # Informações sobre os dados
-    st.sidebar.markdown("""
-    ### 📊 Sobre os Dados
-    - **Smartphones:** 6 modelos populares
-    - **Especificações:** Display, performance, preço
-    - **Atualização:** 2024
-    """)
+    # Layout principal
+    col1, col2 = st.columns([1, 2])
     
-    # Seleção múltipla de smartphones
-    selected_phones = st.sidebar.multiselect(
-        "Selecione os smartphones para comparar:",
-        options=list(phone_data.keys()),
-        default=['iPhone 15 Pro', 'Galaxy S24', 'Xiaomi 14'],
-        help="Selecione de 1 a 6 smartphones para análise detalhada"
-    )
-    
-    if not selected_phones:
-        st.warning("⚠️ Selecione pelo menos um smartphone para começar a comparação!")
-        st.info("👈 Use a barra lateral para escolher os dispositivos")
-        return
-    
-    # Filtros avançados
-    st.sidebar.subheader("🎯 Filtros Avançados")
-    
-    # Filtro por marca
-    available_brands = list(set([phone_data[phone]['brand'] for phone in selected_phones]))
-    if len(available_brands) > 1:
-        brand_filter = st.sidebar.multiselect(
-            "Filtrar por marca:",
-            options=available_brands,
-            default=available_brands
-        )
-        selected_phones = [phone for phone in selected_phones if phone_data[phone]['brand'] in brand_filter]
-    
-    # Filtro por preço
-    show_price_filter = st.sidebar.checkbox("Ativar filtro de preço")
-    if show_price_filter and selected_phones:
-        prices = [phone_data[phone]['price'] for phone in selected_phones]
-        min_price, max_price = find_min_max(prices)
+    with col1:
+        # Seção de seleção de produtos
+        st.markdown("""
+        <div class="sidebar-header">
+            <h3>Produtos Selecionados</h3>
+            <p>Até 4 produtos selecionados</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        price_range = st.sidebar.slider(
-            "Faixa de preço (R$)",
-            min_value=int(min_price),
-            max_value=int(max_price),
-            value=(int(min_price), int(max_price)),
-            step=500,
-            format="R$ %d"
-        )
-        selected_phones = [
-            phone for phone in selected_phones 
-            if price_range[0] <= phone_data[phone]['price'] <= price_range[1]
-        ]
-    
-    if not selected_phones:
-        st.warning("⚠️ Nenhum smartphone atende aos filtros selecionados!")
-        return
-    
-    # Estatísticas gerais
-    st.sidebar.subheader("📈 Estatísticas")
-    if selected_phones:
-        prices = [phone_data[phone]['price'] for phone in selected_phones]
-        avg_price = calculate_average(prices)
-        st.sidebar.metric("Preço Médio", f"R$ {avg_price:,.0f}")
-        st.sidebar.metric("Dispositivos Selecionados", len(selected_phones))
-    
-    # Seção de cards dos dispositivos
-    st.header("📋 Dispositivos Selecionados")
-    
-    # Calcular número de colunas baseado no número de dispositivos
-    num_cols = min(len(selected_phones), 3)
-    cols = st.columns(num_cols)
-    
-    for i, phone in enumerate(selected_phones):
-        with cols[i % num_cols]:
-            data = phone_data[phone]
+        # Mostrar produtos selecionados
+        if st.session_state.selected_products:
+            for product in st.session_state.selected_products:
+                data = product_data[product]
+                
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; padding: 0.5rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 0.5rem;">
+                    <span style="margin-right: 0.5rem;">{data['icon']}</span>
+                    <span style="flex: 1; font-weight: 500;">{product}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            if st.button("🗑️ Limpar", key="clear_all", help="Remove todos os produtos"):
+                st.session_state.selected_products = []
+                st.rerun()
+        else:
+            st.info("Nenhum produto selecionado")
+        
+        st.markdown("---")
+        
+        # Seção de seleção de produtos
+        st.markdown("""
+        <h4>Selecionar Produtos</h4>
+        <p>Escolha até 4 produtos para comparar</p>
+        """, unsafe_allow_html=True)
+        
+        # Filtros
+        categories = ['Todos'] + list(set([data['category'] for data in product_data.values()]))
+        selected_category = st.selectbox("Categoria", categories)
+        
+        brands = ['Todas'] + list(set([data['brand'] for data in product_data.values()]))
+        selected_brand = st.selectbox("Marca", brands)
+        
+        # Filtrar produtos
+        filtered_products = {}
+        for name, data in product_data.items():
+            if selected_category != 'Todos' and data['category'] != selected_category:
+                continue
+            if selected_brand != 'Todas' and data['brand'] != selected_brand:
+                continue
+            filtered_products[name] = data
+        
+        # Exibir produtos disponíveis
+        for product_name, data in filtered_products.items():
+            is_selected = product_name in st.session_state.selected_products
+            can_add = len(st.session_state.selected_products) < 4
+            
             st.markdown(f"""
-            <div class="metric-card">
-                <h3>{data['emoji']} {phone}</h3>
-                <p><strong>{data['brand']}</strong></p>
-                <p>📏 {data['screen_size']}" {data['display_type']}</p>
-                <p>💰 R$ {data['price']:,}</p>
-                <p>🗓️ {data['launch_year']}</p>
+            <div class="product-card">
+                <div class="product-image">{data['icon']}</div>
+                <div class="product-name">{product_name}</div>
+                <div class="product-price">R$ {data['price']:,}</div>
+                <div class="product-year">{data['year']}</div>
             </div>
             """, unsafe_allow_html=True)
-    
-    # Análise comparativa com métricas
-    st.header("📊 Análise Comparativa")
-    
-    # Preparar dados para comparação
-    metrics_data = {
-        'Densidade de Pixels (ppi)': [phone_data[phone]['pixel_density'] for phone in selected_phones],
-        'Brilho (nits)': [phone_data[phone]['brightness'] for phone in selected_phones],
-        'Taxa de Toque (Hz)': [phone_data[phone]['touch_sampling'] for phone in selected_phones],
-        'Tamanho da Tela (pol)': [phone_data[phone]['screen_size'] for phone in selected_phones]
-    }
-    
-    # Exibir métricas principais
-    for metric_name, values in metrics_data.items():
-        if metric_name != 'Tamanho da Tela (pol)':  # Pular tamanho da tela para as barras
-            st.subheader(f"🔍 {metric_name}")
-            max_value = max(values)
             
-            cols = st.columns(len(selected_phones))
-            for i, phone in enumerate(selected_phones):
-                with cols[i]:
-                    value = values[i]
-                    progress_percentage = calculate_percentage(value, max_value)
-                    
-                    # Escolher cor baseada na performance
-                    if progress_percentage >= 80:
-                        color = "#28a745"  # Verde
-                    elif progress_percentage >= 60:
-                        color = "#ffc107"  # Amarelo
-                    else:
-                        color = "#dc3545"  # Vermelho
-                    
+            if is_selected:
+                if st.button("❌ Remover da Comparação", key=f"remove_{product_name}"):
+                    st.session_state.selected_products.remove(product_name)
+                    st.rerun()
+            else:
+                if can_add:
+                    if st.button("➕ Adicionar à Comparação", key=f"add_{product_name}"):
+                        st.session_state.selected_products.append(product_name)
+                        st.rerun()
+                else:
+                    st.button("Limite atingido (4 produtos)", disabled=True, key=f"disabled_{product_name}")
+    
+    with col2:
+        if not st.session_state.selected_products:
+            st.markdown("""
+            <div style="text-align: center; padding: 4rem 2rem; color: #666;">
+                <h3>👈 Selecione produtos para comparar</h3>
+                <p>Escolha até 4 produtos na barra lateral para ver a comparação detalhada</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            # Header da comparação
+            st.markdown("""
+            <div class="comparison-header">
+                <h2 class="comparison-title">Comparação de Produtos</h2>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Tabela de especificações
+            st.markdown("### 📋 Especificações")
+            
+            # Criar tabela de comparação
+            all_specs = set()
+            for product in st.session_state.selected_products:
+                all_specs.update(product_data[product]['specifications'].keys())
+            
+            # Cabeçalho da tabela
+            cols = st.columns([2] + [1] * len(st.session_state.selected_products))
+            with cols[0]:
+                st.markdown("**Especificação**")
+            
+            for i, product in enumerate(st.session_state.selected_products):
+                with cols[i + 1]:
+                    data = product_data[product]
                     st.markdown(f"""
-                    <div class="spec-row">
-                        <h4>{phone_data[phone]['emoji']} {phone}</h4>
-                        <p><strong>{value:,}</strong></p>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: {progress_percentage}%; background-color: {color};"></div>
-                        </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">{data['icon']}</div>
+                        <div style="font-weight: 600; font-size: 0.9rem;">{product}</div>
+                        <div style="color: #666; font-size: 0.8rem;">{data['brand']}</div>
                     </div>
                     """, unsafe_allow_html=True)
-    
-    # Tabela de comparação completa
-    st.header("📋 Tabela de Comparação Detalhada")
-    
-    # Criar DataFrame
-    comparison_data = []
-    for phone in selected_phones:
-        data = phone_data[phone]
-        comparison_data.append({
-            'Smartphone': f"{data['emoji']} {phone}",
-            'Marca': data['brand'],
-            'Tela': f"{data['screen_size']}\"",
-            'Tipo Display': data['display_type'],
-            'Resolução': data['resolution'],
-            'Densidade (ppi)': f"{data['pixel_density']} ppi",
-            'Taxa Atualização (Hz)': f"{data['refresh_rate']} Hz",
-            'Brilho (nits)': f"{data['brightness']:,}",
-            'Taxa Toque (Hz)': f"{data['touch_sampling']} Hz",
-            'Tela Resistente': '✅ Sim' if data['durable_screen'] else '❌ Não',
-            'HDR10': '✅ Sim' if data['hdr10'] else '❌ Não',
-            'Preço': f"R$ {data['price']:,}"
-        })
-    
-    df = pd.DataFrame(comparison_data)
-    st.dataframe(df, use_container_width=True)
-    
-    # Gráficos usando Streamlit nativo
-    st.header("📈 Visualizações")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("💰 Comparação de Preços")
-        chart_data = pd.DataFrame({
-            'Smartphone': selected_phones,
-            'Preço (R$)': [phone_data[phone]['price'] for phone in selected_phones]
-        })
-        st.bar_chart(chart_data.set_index('Smartphone')['Preço (R$)'])
-        
-    with col2:
-        st.subheader("🔆 Brilho da Tela")
-        brightness_data = pd.DataFrame({
-            'Smartphone': selected_phones,
-            'Brilho (nits)': [phone_data[phone]['brightness'] for phone in selected_phones]
-        })
-        st.bar_chart(brightness_data.set_index('Smartphone')['Brilho (nits)'])
-    
-    # Segunda linha de gráficos
-    col3, col4 = st.columns(2)
-    
-    with col3:
-        st.subheader("📏 Densidade de Pixels")
-        density_data = pd.DataFrame({
-            'Smartphone': selected_phones,
-            'Densidade (ppi)': [phone_data[phone]['pixel_density'] for phone in selected_phones]
-        })
-        st.bar_chart(density_data.set_index('Smartphone')['Densidade (ppi)'])
-    
-    with col4:
-        st.subheader("👆 Taxa de Amostragem")
-        touch_data = pd.DataFrame({
-            'Smartphone': selected_phones,
-            'Taxa Toque (Hz)': [phone_data[phone]['touch_sampling'] for phone in selected_phones]
-        })
-        st.bar_chart(touch_data.set_index('Smartphone')['Taxa Toque (Hz)'])
-    
-    # Análise de custo-benefício
-    st.header("💡 Análise Inteligente")
-    
-    # Calcular scores
-    scores = {}
-    for phone in selected_phones:
-        data = phone_data[phone]
-        # Score baseado em especificações técnicas (0-100)
-        tech_score = (
-            (data['pixel_density'] / 500) * 20 +
-            (data['brightness'] / 3000) * 20 +
-            (data['touch_sampling'] / 1000) * 20 +
-            (data['refresh_rate'] / 120) * 20 +
-            (20 if data['durable_screen'] else 0) +
-            (20 if data['hdr10'] else 0)
-        )
-        # Custo-benefício (score técnico / preço em milhares)
-        cost_benefit = tech_score / (data['price'] / 1000)
-        scores[phone] = {
-            'tech_score': round(tech_score, 1),
-            'cost_benefit': round(cost_benefit, 2)
-        }
-    
-    # Encontrar melhores em cada categoria
-    best_tech = max(selected_phones, key=lambda x: scores[x]['tech_score'])
-    best_value = max(selected_phones, key=lambda x: scores[x]['cost_benefit'])
-    most_expensive = max(selected_phones, key=lambda x: phone_data[x]['price'])
-    cheapest = min(selected_phones, key=lambda x: phone_data[x]['price'])
-    
-    # Exibir recomendações
-    st.subheader("🏆 Recomendações Personalizadas")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="recommendation-card best-choice">
-            <h4>🏆 Melhor Custo-Benefício</h4>
-            <h3>{phone_data[best_value]['emoji']} {best_value}</h3>
-            <p><strong>Score: {scores[best_value]['cost_benefit']}</strong></p>
-            <p>R$ {phone_data[best_value]['price']:,}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="recommendation-card premium-choice">
-            <h4>💎 Mais Avançado</h4>
-            <h3>{phone_data[best_tech]['emoji']} {best_tech}</h3>
-            <p><strong>Score Técnico: {scores[best_tech]['tech_score']}</strong></p>
-            <p>R$ {phone_data[best_tech]['price']:,}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="recommendation-card budget-choice">
-            <h4>💵 Mais Econômico</h4>
-            <h3>{phone_data[cheapest]['emoji']} {cheapest}</h3>
-            <p><strong>Entrada</strong></p>
-            <p>R$ {phone_data[cheapest]['price']:,}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Ranking completo
-    st.subheader("📊 Ranking Geral (Custo-Benefício)")
-    
-    # Ordenar phones por custo-benefício
-    sorted_phones = sorted(selected_phones, key=lambda x: scores[x]['cost_benefit'], reverse=True)
-    
-    for i, phone in enumerate(sorted_phones):
-        col1, col2, col3, col4 = st.columns([1, 3, 2, 2])
-        
-        with col1:
-            medals = ["🥇", "🥈", "🥉"]
-            if i < 3:
-                st.markdown(medals[i])
-            else:
-                st.markdown(f"**#{i+1}**")
-        
-        with col2:
-            st.markdown(f"**{phone_data[phone]['emoji']} {phone}**")
-        
-        with col3:
-            st.markdown(f"Score: **{scores[phone]['cost_benefit']}**")
-        
-        with col4:
-            st.markdown(f"R$ **{phone_data[phone]['price']:,}**")
-    
-    # Insights e conclusões
-    st.header("🎯 Insights da Análise")
-    
-    if len(selected_phones) > 1:
-        prices = [phone_data[phone]['price'] for phone in selected_phones]
-        brightnesses = [phone_data[phone]['brightness'] for phone in selected_phones]
-        
-        min_price, max_price = find_min_max(prices)
-        avg_brightness = calculate_average(brightnesses)
-        
-        price_diff = max_price - min_price
-        hdr_phones = [phone for phone in selected_phones if phone_data[phone]['hdr10']]
-        
-        insights = [
-            f"💰 A diferença de preço entre o mais caro e mais barato é de R$ {price_diff:,}",
-            f"🔆 O brilho médio das telas é de {avg_brightness:.0f} nits",
-            f"📺 {len(hdr_phones)} de {len(selected_phones)} smartphones suportam HDR10"
-        ]
-        
-        for insight in insights:
-            st.info(insight)
-    
-    # Estatísticas detalhadas
-    st.subheader("📈 Estatísticas Detalhadas")
-    
-    if selected_phones:
-        stats_col1, stats_col2 = st.columns(2)
-        
-        with stats_col1:
-            st.markdown(f"""
-            <div class="stat-box">
-                <h4>📊 Resumo de Preços</h4>
-                <p>• Mais caro: R$ {max([phone_data[phone]['price'] for phone in selected_phones]):,}</p>
-                <p>• Mais barato: R$ {min([phone_data[phone]['price'] for phone in selected_phones]):,}</p>
-                <p>• Preço médio: R$ {calculate_average([phone_data[phone]['price'] for phone in selected_phones]):,.0f}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with stats_col2:
-            brands_count = {}
-            for phone in selected_phones:
-                brand = phone_data[phone]['brand']
-                brands_count[brand] = brands_count.get(brand, 0) + 1
             
-            st.markdown(f"""
-            <div class="stat-box">
-                <h4>🏢 Distribuição por Marca</h4>
-                {''.join([f"<p>• {brand}: {count} dispositivo(s)</p>" for brand, count in brands_count.items()])}
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("""
-    <div style='text-align: center; color: #666; padding: 2rem;'>
-        <p>📱 <strong>Dashboard de Comparação de Smartphones</strong></p>
-        <p>Desenvolvido com ❤️ usando Streamlit | Dados atualizados em 2024</p>
-        <p>💡 <em>Dica: Use os filtros da barra lateral para personalizar sua análise</em></p>
-    </div>
-    """, unsafe_allow_html=True)
+            st.markdown("---")
+            
+            # Preço (linha especial)
+            cols = st.columns([2] + [1] * len(st.session_state.selected_products))
+            with cols[0]:
+                st.markdown("**Preço**")
+            
+            prices = [product_data[product]['price'] for product in st.session_state.selected_products]
+            min_price = min(prices)
+            max_price = max(prices)
+            
+            for i, product in enumerate(st.session_state.selected_products):
+                with cols[i + 1]:
+                    price = product_data[product]['price']
+                    if price == min_price and len(st.session_state.selected_products) > 1:
+                        st.markdown(f'<div class="best-price">R$ {price:,}</div>', unsafe_allow_html=True)
+                    elif price == max_price and len(st.session_state.selected_products) > 1:
+                        st.markdown(f'<div class="premium">R$ {price:,}</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"**R$ {price:,}**")
+            
+            # Outras especificações
+            for spec in sorted(all_specs):
+                cols = st.columns([2] + [1] * len(st.session_state.selected_products))
+                with cols[0]:
+                    st.markdown(f"**{spec}**")
+                
+                # Para ano de lançamento, destacar o mais recente
+                if spec == "Ano de Lançamento":
+                    years = []
+                    for product in st.session_state.selected_products:
+                        specs = product_data[product]['specifications']
+                        if spec in specs:
+                            years.append(specs[spec])
+                    
+                    max_year = max(years) if years else 0
+                    
+                    for i, product in enumerate(st.session_state.selected_products):
+                        with cols[i + 1]:
+                            specs = product_data[product]['specifications']
+                            if spec in specs:
+                                value = specs[spec]
+                                if value == max_year and len(st.session_state.selected_products) > 1:
+                                    st.markdown(f'<div class="most-recent">{value}</div>', unsafe_allow_html=True)
+                                else:
+                                    st.markdown(f"{value}")
+                            else:
+                                st.markdown("-")
+                else:
+                    for i, product in enumerate(st.session_state.selected_products):
+                        with cols[i + 1]:
+                            specs = product_data[product]['specifications']
+                            if spec in specs:
+                                st.markdown(f"{specs[spec]}")
+                            else:
+                                st.markdown("-")
+            
+            # Histórico de preços
+            if len(st.session_state.selected_products) <= 2:
+                st.markdown("### 📈 Histórico de Preços")
+                
+                chart_cols = st.columns(len(st.session_state.selected_products))
+                
+                for i, product in enumerate(st.session_state.selected_products):
+                    with chart_cols[i]:
+                        data = product_data[product]
+                        fig, trend_text, trend_class = create_price_chart(product, data['price'])
+                        
+                        st.markdown(f"""
+                        <div class="chart-container">
+                            <div class="chart-title">{product}</div>
+                            <div class="current-price">R$ {data['price']:,}</div>
+                            <div class="price-trend {trend_class}">{trend_text}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            
+            # Recomendações
+            st.markdown("### 💡 Recomendações")
+            
+            # Melhor custo-benefício (mais recente com menor preço)
+            best_value = None
+            best_score = 0
+            
+            for product in st.session_state.selected_products:
+                data = product_data[product]
+                # Score baseado em ano/preço
+                score = data['year'] / (data['price'] / 1000)
+                if score > best_score:
+                    best_score = score
+                    best_value = product
+            
+            rec_cols = st.columns(3)
+            
+            with rec_cols[0]:
+                if best_value:
+                    st.success(f"🏆 **Melhor Custo-Benefício**\n\n{best_value}")
+            
+            with rec_cols[1]:
+                # Mais recente
+                newest = max(st.session_state.selected_products, 
+                           key=lambda x: product_data[x]['year'])
+                st.info(f"🆕 **Mais Recente**\n\n{newest}")
+            
+            with rec_cols[2]:
+                # Mais barato
+                cheapest = min(st.session_state.selected_products, 
+                             key=lambda x: product_data[x]['price'])
+                st.warning(f"💰 **Mais Econômico**\n\n{cheapest}")
 
 if __name__ == "__main__":
     main()
