@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import random
 
@@ -238,6 +237,32 @@ st.markdown("""
 .price-up {
     color: #dc3545;
 }
+
+/* Recommendation cards */
+.recommendation-card {
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.rec-success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.rec-info {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+}
+
+.rec-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -320,6 +345,44 @@ def load_product_data():
                 'Peso': '229g'
             },
             'icon': '📱'
+        },
+        'OnePlus 12': {
+            'brand': 'OnePlus',
+            'category': 'Celulares',
+            'price': 7499,
+            'year': 2024,
+            'launch_date': '2024-01-23',
+            'specifications': {
+                'Ano de Lançamento': 2024,
+                'Memória RAM': '12GB',
+                'Armazenamento': '256GB',
+                'Processador': 'Snapdragon 8 Gen 3',
+                'Tela': '6.82" LTPO AMOLED',
+                'Bateria': '5400 mAh',
+                'Câmera': '50MP + 64MP + 48MP',
+                'Sistema Operacional': 'OxygenOS 14',
+                'Peso': '220g'
+            },
+            'icon': '📱'
+        },
+        'Vivo X100 Pro': {
+            'brand': 'Vivo',
+            'category': 'Celulares',
+            'price': 6999,
+            'year': 2024,
+            'launch_date': '2024-01-08',
+            'specifications': {
+                'Ano de Lançamento': 2024,
+                'Memória RAM': '12GB',
+                'Armazenamento': '256GB',
+                'Processador': 'Dimensity 9300',
+                'Tela': '6.78" LTPO AMOLED',
+                'Bateria': '5400 mAh',
+                'Câmera': '50MP + 50MP + 50MP',
+                'Sistema Operacional': 'Funtouch OS 14',
+                'Peso': '225g'
+            },
+            'icon': '📱'
         }
     }
 
@@ -352,8 +415,8 @@ def generate_price_history(current_price, months=6):
     
     return dates, prices
 
-def create_price_chart(product_name, current_price):
-    """Cria gráfico de histórico de preços"""
+def create_price_chart_data(product_name, current_price):
+    """Cria dados para gráfico de histórico de preços usando Streamlit nativo"""
     dates, prices = generate_price_history(current_price)
     
     # Calcular tendência
@@ -361,40 +424,13 @@ def create_price_chart(product_name, current_price):
     trend_text = f"↓ R$ {abs(prices[0] - prices[-1]):.0f}" if price_change < 0 else f"↑ R$ {abs(prices[-1] - prices[0]):.0f}"
     trend_class = "price-down" if price_change < 0 else "price-up"
     
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=dates,
-        y=prices,
-        mode='lines+markers',
-        line=dict(color='#dc3545', width=2),
-        marker=dict(size=4, color='#dc3545'),
-        fill='tonexty',
-        fillcolor='rgba(220, 53, 69, 0.1)'
-    ))
+    # Criar DataFrame para o gráfico
+    chart_data = pd.DataFrame({
+        'Data': dates,
+        'Preço': prices
+    })
     
-    fig.update_layout(
-        title=None,
-        xaxis=dict(
-            showgrid=False,
-            showline=False,
-            tickangle=45,
-            tickfont=dict(size=10)
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='#f0f0f0',
-            showline=False,
-            tickformat='R$ ,.0f',
-            tickfont=dict(size=10)
-        ),
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        height=200,
-        margin=dict(l=50, r=20, t=20, b=40),
-        showlegend=False
-    )
-    
-    return fig, trend_text, trend_class
+    return chart_data, trend_text, trend_class
 
 def main():
     # Header
@@ -589,7 +625,7 @@ def main():
                             else:
                                 st.markdown("-")
             
-            # Histórico de preços
+            # Histórico de preços usando gráficos nativos do Streamlit
             if len(st.session_state.selected_products) <= 2:
                 st.markdown("### 📈 Histórico de Preços")
                 
@@ -598,17 +634,26 @@ def main():
                 for i, product in enumerate(st.session_state.selected_products):
                     with chart_cols[i]:
                         data = product_data[product]
-                        fig, trend_text, trend_class = create_price_chart(product, data['price'])
+                        chart_data, trend_text, trend_class = create_price_chart_data(product, data['price'])
                         
                         st.markdown(f"""
-                        <div class="chart-container">
-                            <div class="chart-title">{product}</div>
-                            <div class="current-price">R$ {data['price']:,}</div>
-                            <div class="price-trend {trend_class}">{trend_text}</div>
-                        </div>
+                        <div class="chart-title">{product}</div>
+                        <div class="current-price">R$ {data['price']:,}</div>
+                        <div class="price-trend {trend_class}">{trend_text}</div>
                         """, unsafe_allow_html=True)
                         
-                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                        # Usar line_chart nativo do Streamlit
+                        st.line_chart(chart_data.set_index('Data')['Preço'], height=200)
+            
+            # Gráfico de comparação de preços
+            st.markdown("### 💰 Comparação de Preços")
+            
+            price_comparison = pd.DataFrame({
+                'Produto': st.session_state.selected_products,
+                'Preço (R$)': [product_data[product]['price'] for product in st.session_state.selected_products]
+            })
+            
+            st.bar_chart(price_comparison.set_index('Produto')['Preço (R$)'])
             
             # Recomendações
             st.markdown("### 💡 Recomendações")
@@ -629,19 +674,57 @@ def main():
             
             with rec_cols[0]:
                 if best_value:
-                    st.success(f"🏆 **Melhor Custo-Benefício**\n\n{best_value}")
+                    st.markdown(f"""
+                    <div class="recommendation-card rec-success">
+                        <h4>🏆 Melhor Custo-Benefício</h4>
+                        <h3>{best_value}</h3>
+                        <p>R$ {product_data[best_value]['price']:,}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
             
             with rec_cols[1]:
                 # Mais recente
                 newest = max(st.session_state.selected_products, 
                            key=lambda x: product_data[x]['year'])
-                st.info(f"🆕 **Mais Recente**\n\n{newest}")
+                st.markdown(f"""
+                <div class="recommendation-card rec-info">
+                    <h4>🆕 Mais Recente</h4>
+                    <h3>{newest}</h3>
+                    <p>{product_data[newest]['year']}</p>
+                </div>
+                """, unsafe_allow_html=True)
             
             with rec_cols[2]:
                 # Mais barato
                 cheapest = min(st.session_state.selected_products, 
                              key=lambda x: product_data[x]['price'])
-                st.warning(f"💰 **Mais Econômico**\n\n{cheapest}")
+                st.markdown(f"""
+                <div class="recommendation-card rec-warning">
+                    <h4>💰 Mais Econômico</h4>
+                    <h3>{cheapest}</h3>
+                    <p>R$ {product_data[cheapest]['price']:,}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Análise adicional
+            if len(st.session_state.selected_products) > 1:
+                st.markdown("### 📊 Análise Comparativa")
+                
+                # Criar métricas comparativas
+                avg_price = sum(prices) / len(prices)
+                price_range = max_price - min_price
+                
+                metric_cols = st.columns(3)
+                
+                with metric_cols[0]:
+                    st.metric("Preço Médio", f"R$ {avg_price:,.0f}")
+                
+                with metric_cols[1]:
+                    st.metric("Diferença de Preço", f"R$ {price_range:,.0f}")
+                
+                with metric_cols[2]:
+                    newest_year = max([product_data[p]['year'] for p in st.session_state.selected_products])
+                    st.metric("Ano Mais Recente", f"{newest_year}")
 
 if __name__ == "__main__":
     main()
